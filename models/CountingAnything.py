@@ -17,6 +17,7 @@ from models.backbone_convnext import convnext_base
 from models.backbone_vit import ViTExtractor
 from models.counting_head import CountingHeadLinearProbe, CountingHeadRegression
 from models.localisation_head import LocalsiationConvUpsample
+from models.custom_layers import CustomRound
 
 from sklearn.decomposition import PCA
 
@@ -36,7 +37,7 @@ class CountingAnything(LightningModule):
 
         if CFG["backbone"] == "vit_dino":
             # vit_small_patch8_224_dino-token_11_0_8
-            feature_dim = 384
+            feature_dim = CFG["feature_dim"]
             vit_config = {
                 "base_model": "vit_small_patch8_224_dino",
                 "facet": "token",
@@ -80,7 +81,7 @@ class CountingAnything(LightningModule):
 
         elif CFG["backbone"] == "resnet":
             # resnet-50
-            feature_dim = 512
+            feature_dim = CFG["feature_dim"]
             backbone = resnet50(pretrained=True)
             layers = list(backbone.children())[:-4]
             self.backbone = nn.Sequential(*layers)
@@ -94,7 +95,7 @@ class CountingAnything(LightningModule):
 
         elif CFG["backbone"] == "convnext":  #
             # convnext_base
-            feature_dim = 256
+            feature_dim = CFG["feature_dim"]
             self.backbone = convnext_base(pretrained=True)
 
             if number_to_unfreeze == -1:
@@ -164,6 +165,11 @@ class CountingAnything(LightningModule):
         self.test_class_gt = torchmetrics.CatMetric()
         self.test_class_pred = torchmetrics.CatMetric()
 
+    def forward(self, input):
+        feats = self.backbone(input)
+        y_count, _ = self.counting_head(feats)
+        return torch.round(y_count)
+
     def step(self, batch, batch_idx, tag):
 
         input, _boxes, gt_density, gt_cnt, im_id = batch
@@ -201,7 +207,10 @@ class CountingAnything(LightningModule):
                 )
                 gt_cnt = torch.sum(gt_cnt, dim=1)
                 y_count = torch.sum(y_count, dim=1)
-
+            
+            if self.CFG["rounding_count"]:
+                y_count = CustomRound.apply(y_count)
+            
             if self.CFG["counting_loss"] == "MAE":
                 loss_counting = torch.abs(y_count - gt_cnt).mean()
 

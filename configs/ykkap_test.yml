@@ -1,0 +1,26 @@
+---
+data_path: "/nas/tiennh/common/data/h2/"
+
+seed: -1
+resume_path: /nas/tiennh/LearningToCountAnything/logs/ykkap_training/version_5/checkpoints/epoch=10_val_DDP_MAE=1.22_val_DDP_RMSE=1.67.ckpt
+dataset: ykkap_stair_dataset
+counting_filename: "ykkap_counting.json"
+data_split_filename: "data_split.json"
+
+backbone: "vit_dino"
+backbone_unfreeze_layers: 1
+
+counting_head: regress_c3_simple
+counting_loss: MAPE
+
+image_transforms: reflect_rotate_increase_density
+
+train_batch_size: 2
+eval_batch_size: 2
+
+learning_rate: 0.0
+
+max_epochs: 1
+
+
+

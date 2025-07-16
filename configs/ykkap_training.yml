@@ -1,0 +1,34 @@
+---
+data_path: "/nas/tiennh/common/data/h2/"
+
+seed: -1
+resume_path: ""
+dataset: ykkap_stair_dataset
+counting_filename: "ykkap_counting.json"
+data_split_filename: "data_split.json"
+
+backbone: "vit_dino"
+backbone_unfreeze_layers: 2
+
+counting_head: regress_c3_simple
+counting_loss: MAPE
+
+tensorboard_visualise: False
+
+image_transforms: 
+
+increase_density_ratio: 50 
+
+scheduler: StepLR
+scheduler_steps: 100
+scheduler_gamma: 0.5
+
+train_batch_size: 16
+eval_batch_size: 16
+
+learning_rate: 1e-5
+
+max_epochs: 100
+
+
+

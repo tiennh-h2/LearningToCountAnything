@@ -59,16 +59,23 @@ class CountingDatasetFSC(Dataset):
         self.img_channels = CFG["img_channels"]
         self.dataset = CFG["dataset"]
 
+        data_path = CFG["data_path"] + f"{self.dataset}/"
         if CFG["dataset"] == "FSC-147":
-            data_path = CFG["data_path"] + "FSC-147/"
             anno_file = data_path + "annotation_FSC147_384.json"
             data_split_file = data_path + "Train_Test_Val_FSC_147.json"
         elif CFG["dataset"] == "FSC-133":
-            data_path = CFG["data_path"] + "FSC-133/"
             anno_file = data_path + "annotation_FSC133_384.json"
             data_split_file = data_path + "Train_Test_Val_FSC_133.json"
-        self.im_dir = data_path + "images_384_VarV2"
-        self.gt_dir = data_path + "gt_density_map_adaptive_384_VarV2"
+        
+        if CFG["dataset"] in ["FSC-147", "FSC-133"]:
+            self.im_dir = data_path + "images_384_VarV2"
+            self.gt_dir = data_path + "gt_density_map_adaptive_384_VarV2"
+        else:
+            anno_file = CFG.get("anno_filename", None)
+            anno_file = data_path + anno_file if anno_file else None
+            data_split_file = data_path + CFG["data_split_filename"]
+            self.im_dir = data_path + "images"
+            self.gt_dir = data_path + "gt_density_map_adaptive"
 
         if anno_file != None:
             with open(anno_file) as f:
@@ -455,8 +462,71 @@ class ExampleImagesDataset(Dataset):
         )
 
 
+class YKKAPStairDataset(Dataset):
+    def __init__(
+        self, CFG, train, transform=None
+    ):
+        assert CFG["use_localisation_head"] is False, "localisation head not supported for YKKAP dataset"
+
+        self.dataset = CFG["dataset"]
+        data_path = CFG["data_path"] + f"{self.dataset}/"
+
+        self.img_size = CFG["img_size"]
+        self.train = train
+        self.im_dir = data_path + "images"
+
+        with open(data_path + CFG["data_split_filename"]) as f:
+            data_split = json.load(f)
+        if self.train:
+            self.im_ids = data_split["train"]
+        else:
+            self.im_ids = data_split[CFG["test_split"]]
+            
+        with open(data_path + CFG["counting_filename"]) as f:
+            self.counting = json.load(f)
+
+        splt = "train" if train else "test"
+        print(f"{splt} set, size:{len(self.im_ids)}, eg: {self.im_ids[:5]}")
+
+        if transform is not None:
+            self.transform = transform
+        else:
+            self.transform = transforms.Compose(
+                [
+                    transforms.Resize((self.img_size[0], self.img_size[1])),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=IM_NORM_MEAN, std=IM_NORM_STD),
+                ]
+            )
+
+    def __len__(self):
+        return len(self.im_ids)
+
+    def __getitem__(self, idx):
+
+        im_id = self.im_ids[idx]
+        image = Image.open(f"{self.im_dir}/{im_id}")
+        image.load()
+        if image.mode != "RGB":
+            print("IMAGE NOT RGB", im_id, image.mode)
+            image = image.convert("RGB")
+        image = self.transform(image)
+
+        gt_cnt = torch.Tensor([self.counting[im_id]])
+        density = torch.Tensor([0])
+        _boxes = torch.Tensor((1))
+
+        return (
+            image,
+            _boxes,
+            density,
+            gt_cnt,
+            im_id
+        )
+    
+
 def get_dataloader(CFG, train):
-    TransformT = transforms.Compose([resize_instance(CFG, train=train)])
+    TransformT = transforms.Compose([resize_instance(CFG, train=train)]) if CFG["image_transforms"] is not None else None
 
     if CFG["dataset"] == "example_ims":
         dataset = ExampleImagesDataset(CFG, train=train, transform=TransformT)
@@ -464,6 +534,8 @@ def get_dataloader(CFG, train):
         dataset = CountingDatasetShanghai(CFG, train=train, transform=TransformT)
     elif CFG["dataset"] == "carpk":
         dataset = CountingDatasetCARPK(CFG, train=train, transform=TransformT)
+    elif CFG["dataset"] == "ykkap_stair_dataset":
+        dataset = YKKAPStairDataset(CFG, train=train, transform=TransformT)
     else:
         dataset = CountingDatasetFSC(CFG, train=train, transform=TransformT)
 

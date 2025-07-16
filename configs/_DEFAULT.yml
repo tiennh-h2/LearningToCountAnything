@@ -8,6 +8,7 @@ output_dir: output/
 resume_path: "" # path to the checkpoint
 resume_path_localisation: ""
 resume_counting_head_path: ""
+rounding_count: False
 
 total_loss: "counting_loss" # counting_loss, localisation_loss
 
@@ -27,11 +28,13 @@ pca_visualise: False
 tensorboard_visualise_localisation: False
 save_visualise_localisation: False
 
+feature_dim: 384
+
 img_channels: 3
 img_size: [224, 224]
 img_mode: scale #scale to img_size
 
-image_transforms: None #None, reflect_rotate, colour_jitter rgb_scramble, increase_density
+image_transforms: reflect_rotate, colour_jitter rgb_scramble, increase_density
 increase_density_ratio: 50 #how frequently to increase_density as a percentage
 increase_density_amount: 4 #how frequently to increase_density as a percentage
 increase_density_rotate: True #should the 4 tiles be rotated independently
